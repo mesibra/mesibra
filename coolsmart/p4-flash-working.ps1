@@ -5,16 +5,16 @@ param(
 $ErrorActionPreference = "Stop"
 $ProgressPreference = "SilentlyContinue"
 
-$BaseUrl = "https://raw.githubusercontent.com/mesibra/mesibra/main/coolsmart/firmware/p4-c960ee6"
-$ExpectedCommit = "c960ee6cf4f7ab08887577b03bd00243ef2f5c79"
+$BaseUrl = "https://raw.githubusercontent.com/mesibra/mesibra/main/coolsmart/firmware/p4-d50266f"
+$ExpectedCommit = "d50266fdd2f11fcdfb299438cd91b93a94f73249"
 $TempRoot = Join-Path $env:TEMP ("CoolSmart-P4-" + [guid]::NewGuid().ToString("N"))
 $FwRoot = Join-Path $TempRoot "fw"
 
 $Files = @(
-    @{ Remote = "bootloader/bootloader.bin"; Local = "bootloader\bootloader.bin"; Sha256 = "70c836a4d616e7525c5fb65ec89aee621e38e2736978c6b051460f93392fa62a" },
+    @{ Remote = "bootloader/bootloader.bin"; Local = "bootloader\bootloader.bin"; Sha256 = "c36c1bef10434987de61da17e89ac5b790034899516626ebb07a811b1906437a" },
     @{ Remote = "partition_table/partition-table.bin"; Local = "partition_table\partition-table.bin"; Sha256 = "3ba490af9dac62e05c22ca5a124018f5fdca958ffd1a767bb90eae7b558400df" },
     @{ Remote = "ota_data_initial.bin"; Local = "ota_data_initial.bin"; Sha256 = "7d2c7ac4888bfd75cd5f56e8d61f69595121183afc81556c876732fd3782c62f" },
-    @{ Remote = "CoolSmartP4Monitor.bin"; Local = "CoolSmartP4Monitor.bin"; Sha256 = "5f2e69a409b6635be07168a207b2c4ec639be4f9179b17f085145156845985c7" },
+    @{ Remote = "CoolSmartP4Monitor.bin"; Local = "CoolSmartP4Monitor.bin"; Sha256 = "1b275450e50f74d013cc5219bd102299f019819239906f2791764909d27d175f" },
     @{ Remote = "storage.bin"; Local = "storage.bin"; Sha256 = "c1ec6e89a70576f5f8786c56a834aa6589a2f0bb801d0bd30e76922df17ffec1" }
 )
 
@@ -27,7 +27,7 @@ try {
     $serial = Get-CimInstance Win32_SerialPort | Where-Object { $_.DeviceID -eq $Port }
     if (-not $serial) { throw "Port $Port not found." }
 
-    Write-Host "[2/6] Downloading permanent GitHub hotfix $ExpectedCommit..." -ForegroundColor Cyan
+    Write-Host "[2/6] Downloading permanent GitHub recovery build $ExpectedCommit..." -ForegroundColor Cyan
     $commitUrl = "$BaseUrl/commit.txt"
     $actualCommit = (Invoke-RestMethod -Uri $commitUrl).Trim()
     if ($actualCommit -ne $ExpectedCommit) {
@@ -72,7 +72,7 @@ try {
         0xa10000 $Storage
     if ($LASTEXITCODE -ne 0) { throw "Flashing failed with exit code $LASTEXITCODE" }
 
-    Write-Host "[5/6] Hotfix flashed and verified." -ForegroundColor Green
+    Write-Host "[5/6] Recovery build flashed and verified." -ForegroundColor Green
     Write-Host "[6/6] Opening firmware console at 2,000,000 baud. Press Ctrl+] to exit." -ForegroundColor Cyan
     Start-Sleep -Seconds 1
     & py -m serial.tools.miniterm $Port 2000000
