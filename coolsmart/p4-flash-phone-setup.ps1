@@ -106,8 +106,8 @@ try {
     Read-FlashRegionSafe -Offset "0x3b000" -Size "0xd2000" -ExpectedBytes 860160 -Destination $NvsBackup -Label "NVS"
     Write-Host "Both NVS backups are complete and size-verified on Desktop." -ForegroundColor Green
 
-    Write-Host "[5/7] Flashing safe explicit offsets. NO erase-flash. NO full.bin." -ForegroundColor Cyan
-    & py -m esptool --chip esp32p4 --port $Port --baud 460800 write-flash --flash-mode dio --flash-freq 80m --flash-size 32MB `
+    Write-Host "[5/7] Flashing safe explicit offsets at 230400 baud. NO erase-flash. NO full.bin." -ForegroundColor Cyan
+    & py -m esptool --chip esp32p4 --port $Port --baud 230400 write-flash --flash-mode dio --flash-freq 80m --flash-size 32MB `
         0x2000 $Boot `
         0x110000 $App `
         0x8000 $Part `
