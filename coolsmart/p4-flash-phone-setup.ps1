@@ -5,16 +5,16 @@ param(
 $ErrorActionPreference = "Stop"
 $ProgressPreference = "SilentlyContinue"
 
-$BaseUrl = "https://raw.githubusercontent.com/mesibra/mesibra/main/coolsmart/firmware/p4-f863a67"
-$ExpectedCommit = "f863a67b9510f2c9a6181e092aaa32dd81fc9d0d"
-$TempRoot = Join-Path $env:TEMP ("CoolSmart-P4-PhoneSetup-" + [guid]::NewGuid().ToString("N"))
+$BaseUrl = "https://raw.githubusercontent.com/mesibra/mesibra/main/coolsmart/firmware/p4-b5286e6"
+$ExpectedCommit = "b5286e683dc9adc3d1227cfd1bb19319918349ed"
+$TempRoot = Join-Path $env:TEMP ("CoolSmart-P4-SimpleMonitor-" + [guid]::NewGuid().ToString("N"))
 $FwRoot = Join-Path $TempRoot "fw"
 
 $Files = @(
-    @{ Remote = "bootloader/bootloader.bin"; Local = "bootloader\bootloader.bin"; Sha256 = "1a3d4f88efb15649d5766bd05520c26e2a84d38f3cf6f19d6a1ffcbc06d4efb9" },
+    @{ Remote = "bootloader/bootloader.bin"; Local = "bootloader\bootloader.bin"; Sha256 = "5b9de605b820f4d941890e4ff54779c8813bd9c61aca341ba747a4026a764009" },
     @{ Remote = "partition_table/partition-table.bin"; Local = "partition_table\partition-table.bin"; Sha256 = "3ba490af9dac62e05c22ca5a124018f5fdca958ffd1a767bb90eae7b558400df" },
     @{ Remote = "ota_data_initial.bin"; Local = "ota_data_initial.bin"; Sha256 = "7d2c7ac4888bfd75cd5f56e8d61f69595121183afc81556c876732fd3782c62f" },
-    @{ Remote = "CoolSmartP4Monitor.bin"; Local = "CoolSmartP4Monitor.bin"; Sha256 = "7bd2d9709d463f7fe173d317399205ce790a308803b833f5e4bbda7399913880" },
+    @{ Remote = "CoolSmartP4Monitor.bin"; Local = "CoolSmartP4Monitor.bin"; Sha256 = "7b09d0d66215f86c7f51c3b45f38d13462cc6fbc9ad10f5d3da5f74d7285a648" },
     @{ Remote = "storage.bin"; Local = "storage.bin"; Sha256 = "c1ec6e89a70576f5f8786c56a834aa6589a2f0bb801d0bd30e76922df17ffec1" }
 )
 
@@ -69,7 +69,7 @@ try {
     $serial = Get-CimInstance Win32_SerialPort | Where-Object { $_.DeviceID -eq $Port }
     if (-not $serial) { throw "Port $Port not found." }
 
-    Write-Host "[2/7] Downloading permanent GitHub P4 Ethernet/Wi-Fi build $ExpectedCommit..." -ForegroundColor Cyan
+    Write-Host "[2/7] Downloading permanent GitHub P4 simple C6 monitor build $ExpectedCommit..." -ForegroundColor Cyan
     $actualCommit = (Invoke-RestMethod -Uri "$BaseUrl/commit.txt").Trim()
     if ($actualCommit -ne $ExpectedCommit) {
         throw "Unexpected firmware commit: $actualCommit"
@@ -115,7 +115,7 @@ try {
         0xa10000 $Storage
     if ($LASTEXITCODE -ne 0) { throw "Flashing failed with exit code $LASTEXITCODE" }
 
-    Write-Host "[6/7] Stable Ethernet/Wi-Fi phone-setup firmware f863a67 flashed successfully." -ForegroundColor Green
+    Write-Host "[6/7] Simple C6 monitor firmware b5286e6 flashed successfully." -ForegroundColor Green
     Write-Host "[7/7] Opening firmware console at 2,000,000 baud. Press Ctrl+] to exit." -ForegroundColor Cyan
     Start-Sleep -Seconds 1
     & py -m serial.tools.miniterm $Port 2000000
