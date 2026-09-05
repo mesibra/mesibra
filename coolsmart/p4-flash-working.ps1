@@ -5,7 +5,7 @@ param(
 $ErrorActionPreference = "Stop"
 $ProgressPreference = "SilentlyContinue"
 
-$ArtifactUrl = "https://sdmntprdenmarkeast.oaiusercontent.com/files/00000000-0674-8210-8c6a-ccb7f1620c86/raw?se=2026-09-05T13%3A10%3A51Z&sp=r&sv=2026-02-06&sr=b&scid=a31ef1ef-435c-5fa6-be89-f720f867210a&skoid=9b41a688-1b44-4731-856e-b0efcf3660ed&sktid=a48cca56-e6da-484e-a814-9c849652bcb3&skt=2026-09-05T09%3A11%3A49Z&ske=2026-09-06T09%3A11%3A49Z&sks=b&skv=2026-02-06&sig=DtcMSLioodVb4aY0McOFH/lDCzBN3w4XZAcXWveRKgY%3D"
+$ArtifactUrl = "https://sdmntprnortheu.oaiusercontent.com/files/00000000-5474-81f4-b453-542b153ad076/raw?se=2026-09-05T13%3A18%3A09Z&sp=r&sv=2026-02-06&sr=b&scid=41c35ccc-6992-536d-922e-0acd733bd800&skoid=9b41a688-1b44-4731-856e-b0efcf3660ed&sktid=a48cca56-e6da-484e-a814-9c849652bcb3&skt=2026-09-05T10%3A34%3A33Z&ske=2026-09-06T10%3A34%3A33Z&sks=b&skv=2026-02-06&sig=uftiW4BKCIngTlj4iwniN%2BUSvfAD212Z6xDtLuD5Cqw%3D"
 $ExpectedZipSha256 = "f6af06f29140028e3db58b9e7ffd365f2823943e2989b3b6c7c7919871d2aef1"
 $TempRoot = Join-Path $env:TEMP ("CoolSmart-P4-" + [guid]::NewGuid().ToString("N"))
 $ZipPath = Join-Path $TempRoot "firmware.zip"
