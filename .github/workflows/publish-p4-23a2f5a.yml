@@ -1,0 +1,72 @@
+name: Publish P4 23a2f5a firmware
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/publish-p4-23a2f5a.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      ARTIFACT_URL: 'https://sdmntpritalynorth.oaiusercontent.com/files/00000000-1340-8246-ac0d-7593f900c1b2/raw?se=2026-09-05T23%3A56%3A08Z&sp=r&sv=2026-02-06&sr=b&scid=0defdb53-d367-5ac7-ab95-91832d6a0703&skoid=9b41a688-1b44-4731-856e-b0efcf3660ed&sktid=a48cca56-e6da-484e-a814-9c849652bcb3&skt=2026-09-05T04%3A06%3A29Z&ske=2026-09-06T04%3A06%3A29Z&sks=b&skv=2026-02-06&sig=RFEpMN%2BvHP/4FU34i5hiM7dpBwpqEla9S0ioptIxUZc%3D'
+      ZIP_SHA256: '322190d9b9741a099ee1b01a82d19bd4f87a644a0c61239eb3aa490285ac71c4'
+      EXPECTED_COMMIT: '23a2f5a9ae4bec5b4294d20b1d24727c1c9f4b79'
+      DEST: 'coolsmart/firmware/p4-23a2f5a'
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Download and verify validated CI artifact
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          curl -fL --retry 3 --retry-delay 2 "$ARTIFACT_URL" -o /tmp/fw.zip
+          echo "$ZIP_SHA256  /tmp/fw.zip" | sha256sum -c -
+          rm -rf /tmp/fw && mkdir -p /tmp/fw
+          unzip -q /tmp/fw.zip -d /tmp/fw
+          cd /tmp/fw
+          test "$(tr -d '\r\n' < commit.txt)" = "$EXPECTED_COMMIT"
+          sha256sum -c SHA256SUMS.txt
+
+      - name: Publish permanent firmware files
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          rm -rf "$DEST"
+          mkdir -p "$DEST/bootloader" "$DEST/partition_table"
+          cp /tmp/fw/bootloader/bootloader.bin "$DEST/bootloader/"
+          cp /tmp/fw/partition_table/partition-table.bin "$DEST/partition_table/"
+          cp /tmp/fw/ota_data_initial.bin "$DEST/"
+          cp /tmp/fw/CoolSmartP4Monitor.bin "$DEST/"
+          cp /tmp/fw/storage.bin "$DEST/"
+          cp /tmp/fw/commit.txt "$DEST/"
+          cp /tmp/fw/flash_args "$DEST/"
+          cat > "$DEST/SHA256SUMS.txt" <<'EOF'
+          8d1dcbc646dcae1be5770e259d041e73e80e4ae831c114384f84ea18cc8be55c  bootloader/bootloader.bin
+          3ba490af9dac62e05c22ca5a124018f5fdca958ffd1a767bb90eae7b558400df  partition_table/partition-table.bin
+          7d2c7ac4888bfd75cd5f56e8d61f69595121183afc81556c876732fd3782c62f  ota_data_initial.bin
+          132309667cdaa5e9ace550c8408d097ca5612496ddb2e7e7226a4c6f5648c45c  CoolSmartP4Monitor.bin
+          c1ec6e89a70576f5f8786c56a834aa6589a2f0bb801d0bd30e76922df17ffec1  storage.bin
+          EOF
+          (cd "$DEST" && sha256sum -c SHA256SUMS.txt)
+
+      - name: Commit permanent firmware
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add "$DEST"
+          if git diff --cached --quiet; then
+            echo 'Firmware already published.'
+            exit 0
+          fi
+          git commit -m 'Publish P4 simple monitor 23a2f5a'
+          git push
