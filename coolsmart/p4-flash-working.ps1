@@ -5,7 +5,7 @@ param(
 $ErrorActionPreference = "Stop"
 $ProgressPreference = "SilentlyContinue"
 
-$ArtifactUrl = "https://sdmntprdenmarkeast.oaiusercontent.com/files/00000000-e060-8210-887e-0f20b489c843/raw?se=2026-09-05T13%3A57%3A43Z&sp=r&sv=2026-02-06&sr=b&scid=1cb3ab4d-0212-57f3-880c-52958692013f&skoid=9b41a688-1b44-4731-856e-b0efcf3660ed&sktid=a48cca56-e6da-484e-a814-9c849652bcb3&skt=2026-09-04T23%3A25%3A55Z&ske=2026-09-05T23%3A25%3A55Z&sks=b&skv=2026-02-06&sig=dCiQaoeHNXV154R%2Byr1hNE04t259iUv%2BRx8h%2BV1VVO0%3D"
+$ArtifactUrl = "https://sdmntprnortheu.oaiusercontent.com/files/00000000-e760-81f4-9bd0-b27917a295ba/raw?se=2026-09-05T14%3A22%3A25Z&sp=r&sv=2026-02-06&sr=b&scid=31eb2f5e-2f2b-5728-9d03-25ad8889cbc4&skoid=9b41a688-1b44-4731-856e-b0efcf3660ed&sktid=a48cca56-e6da-484e-a814-9c849652bcb3&skt=2026-09-05T06%3A46%3A22Z&ske=2026-09-06T06%3A46%3A22Z&sks=b&skv=2026-02-06&sig=QhVo0F/hHQRQJfGPUN1eY6eAk/6vr7IkPUh/ipI13Xs%3D"
 $ExpectedZipSha256 = "31a4d0b2d430e3a86ac5350a3c7d79f614551fa4f7310a748dc76ae3b3a033f6"
 $ExpectedCommit = "c960ee6cf4f7ab08887577b03bd00243ef2f5c79"
 $TempRoot = Join-Path $env:TEMP ("CoolSmart-P4-" + [guid]::NewGuid().ToString("N"))
