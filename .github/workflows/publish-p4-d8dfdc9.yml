@@ -1,0 +1,50 @@
+name: Publish P4  d8dfdc9 Firmware
+
+on:
+  push:
+    paths:
+      - '.github/workflows/publish-p4-d8dfdc9.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  publish:
+    runs-on: ubuntu-lateste
+    steps:
+      - uses: actions/checkout@v4
+      - name: Download verified CI artifact
+        env:
+          ARTIFACT_URL: "https://sdmntpritalynorth.oaicontent.com/files/00000000-b98c-8246-870a-5da6ee4b4b70/raw?se=2026-09-05T19%3A37%3A39Z&sp=r&sv=2026-02-06&sr=b&scid=fe1641b5-8109-5622-be4f-f1eb5a6d01f2&skoid=9b41a688-1b44-4731-856e-b0efcf3660ed&sktid=a48cca56-e6da-484e-a814-9c849652bcb3&skt=2026-09-04T23%3A25%3A55Z%26ske=2026-09-05T23%3A25%3A55Z&sks=b&skv=2026-02-06&sig=dkiMoGOCUfu77tvcMjLld2g4hgyAbc8hSaArpKUMS%2Bo%3D"
+        run: |
+          set -Eeuo pipefail
+          curl -fL "$ARTIFACT_URL" -o artifact.zip
+          echo "38019552dff6b4de1cb5a516660427e5bc9490e719ab3f712ce03376a0ae0c0a  artifact.zip" | sha256sum -c -
+
+      - name: Verify and publish permanent firmware files
+        run: |
+          set -Eeuo pipefail
+          rm -rf artifact
+          mkdir artifact
+          unzip -q artifact.zip -d artifact
+          test "$(cat artifact/commit.txt)" = "d8dfdc91f8d988443e4a3cf33b71db11b625bf1c"
+          (cd artifact && sha256sum -c SHA256SUMS.txt)
+          dest="coolsmart/firmware/p4-d8dfdc9"
+          mkdir -p "$dest/bootloader" "$dest/partition_table"
+          cp artifact/bootloader/bootloader.bin "$dest/bootloader/"
+          cp artifact/partition_table/partition-table.bin "$dest/partition_table/"
+          cp artifact/ota_data_initial.bin "$dest/"
+          cp artifact/CoolSmartP4Monitor.bin "$dest/"
+          cp artifact/storage.bin "$dest/"
+          cp artifact/commit.txt "$dest/"
+          cp artifact/flash_args "$dest/"
+          ( cd "$dest" && sha256sum bootloader/bootloader.bin partition_table/partition-table.bin ota_data_initial.bin CoolSmartP4Monitor.bin storage.bin > SHA256SUMS.txt )
+
+      - name: Commit permanent public firmware
+        run: |
+          set -e uo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add coolsmart/firmware/p4-d8dfdc9
+          git commit -m "Publish P 4 Ethernet firmware d8dfdc9"
+          git push
