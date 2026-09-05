@@ -5,44 +5,51 @@ param(
 $ErrorActionPreference = "Stop"
 $ProgressPreference = "SilentlyContinue"
 
-$ArtifactUrl = "https://sdmntprnortheu.oaiusercontent.com/files/00000000-e760-81f4-9bd0-b27917a295ba/raw?se=2026-09-05T14%3A22%3A25Z&sp=r&sv=2026-02-06&sr=b&scid=31eb2f5e-2f2b-5728-9d03-25ad8889cbc4&skoid=9b41a688-1b44-4731-856e-b0efcf3660ed&sktid=a48cca56-e6da-484e-a814-9c849652bcb3&skt=2026-09-05T06%3A46%3A22Z&ske=2026-09-06T06%3A46%3A22Z&sks=b&skv=2026-02-06&sig=QhVo0F/hHQRQJfGPUN1eY6eAk/6vr7IkPUh/ipI13Xs%3D"
-$ExpectedZipSha256 = "31a4d0b2d430e3a86ac5350a3c7d79f614551fa4f7310a748dc76ae3b3a033f6"
+$BaseUrl = "https://raw.githubusercontent.com/mesibra/mesibra/main/coolsmart/firmware/p4-c960ee6"
 $ExpectedCommit = "c960ee6cf4f7ab08887577b03bd00243ef2f5c79"
 $TempRoot = Join-Path $env:TEMP ("CoolSmart-P4-" + [guid]::NewGuid().ToString("N"))
-$ZipPath = Join-Path $TempRoot "firmware.zip"
-$ExtractPath = Join-Path $TempRoot "fw"
+$FwRoot = Join-Path $TempRoot "fw"
 
-New-Item -ItemType Directory -Path $TempRoot -Force | Out-Null
-New-Item -ItemType Directory -Path $ExtractPath -Force | Out-Null
+$Files = @(
+    @{ Remote = "bootloader/bootloader.bin"; Local = "bootloader\bootloader.bin"; Sha256 = "70c836a4d616e7525c5fb65ec89aee621e38e2736978c6b051460f93392fa62a" },
+    @{ Remote = "partition_table/partition-table.bin"; Local = "partition_table\partition-table.bin"; Sha256 = "3ba490af9dac62e05c22ca5a124018f5fdca958ffd1a767bb90eae7b558400df" },
+    @{ Remote = "ota_data_initial.bin"; Local = "ota_data_initial.bin"; Sha256 = "7d2c7ac4888bfd75cd5f56e8d61f69595121183afc81556c876732fd3782c62f" },
+    @{ Remote = "CoolSmartP4Monitor.bin"; Local = "CoolSmartP4Monitor.bin"; Sha256 = "5f2e69a409b6635be07168a207b2c4ec639be4f9179b17f085145156845985c7" },
+    @{ Remote = "storage.bin"; Local = "storage.bin"; Sha256 = "c1ec6e89a70576f5f8786c56a834aa6589a2f0bb801d0bd30e76922df17ffec1" }
+)
+
+New-Item -ItemType Directory -Path $FwRoot -Force | Out-Null
+New-Item -ItemType Directory -Path (Join-Path $FwRoot "bootloader") -Force | Out-Null
+New-Item -ItemType Directory -Path (Join-Path $FwRoot "partition_table") -Force | Out-Null
 
 try {
     Write-Host "[1/6] Checking COM port $Port..." -ForegroundColor Cyan
     $serial = Get-CimInstance Win32_SerialPort | Where-Object { $_.DeviceID -eq $Port }
     if (-not $serial) { throw "Port $Port not found." }
 
-    Write-Host "[2/6] Downloading verified stable UI hotfix $ExpectedCommit..." -ForegroundColor Cyan
-    Invoke-WebRequest -UseBasicParsing -Uri $ArtifactUrl -OutFile $ZipPath
-
-    $zipHash = (Get-FileHash -Algorithm SHA256 $ZipPath).Hash.ToLowerInvariant()
-    if ($zipHash -ne $ExpectedZipSha256) {
-        throw "Firmware ZIP SHA256 mismatch. Expected $ExpectedZipSha256, got $zipHash"
+    Write-Host "[2/6] Downloading permanent GitHub hotfix $ExpectedCommit..." -ForegroundColor Cyan
+    $commitUrl = "$BaseUrl/commit.txt"
+    $actualCommit = (Invoke-RestMethod -Uri $commitUrl).Trim()
+    if ($actualCommit -ne $ExpectedCommit) {
+        throw "Unexpected firmware commit: $actualCommit"
     }
 
-    Expand-Archive -Path $ZipPath -DestinationPath $ExtractPath -Force
-
-    $CommitFile = Join-Path $ExtractPath "commit.txt"
-    if (-not (Test-Path $CommitFile)) { throw "Missing commit.txt" }
-    $ActualCommit = (Get-Content $CommitFile -Raw).Trim()
-    if ($ActualCommit -ne $ExpectedCommit) { throw "Unexpected firmware commit: $ActualCommit" }
-
-    $Boot = Join-Path $ExtractPath "bootloader\bootloader.bin"
-    $Part = Join-Path $ExtractPath "partition_table\partition-table.bin"
-    $Ota = Join-Path $ExtractPath "ota_data_initial.bin"
-    $App = Join-Path $ExtractPath "CoolSmartP4Monitor.bin"
-    $Storage = Join-Path $ExtractPath "storage.bin"
-    foreach ($f in @($Boot,$Part,$Ota,$App,$Storage)) {
-        if (-not (Test-Path $f)) { throw "Missing firmware file: $f" }
+    foreach ($item in $Files) {
+        $dest = Join-Path $FwRoot $item.Local
+        $url = "$BaseUrl/$($item.Remote)"
+        Invoke-WebRequest -UseBasicParsing -Uri $url -OutFile $dest
+        $actualHash = (Get-FileHash -Algorithm SHA256 $dest).Hash.ToLowerInvariant()
+        if ($actualHash -ne $item.Sha256) {
+            throw "SHA256 mismatch for $($item.Remote). Expected $($item.Sha256), got $actualHash"
+        }
     }
+    Write-Host "Permanent GitHub files and SHA256 checks OK." -ForegroundColor Green
+
+    $Boot = Join-Path $FwRoot "bootloader\bootloader.bin"
+    $Part = Join-Path $FwRoot "partition_table\partition-table.bin"
+    $Ota = Join-Path $FwRoot "ota_data_initial.bin"
+    $App = Join-Path $FwRoot "CoolSmartP4Monitor.bin"
+    $Storage = Join-Path $FwRoot "storage.bin"
 
     Write-Host "[3/6] Backing up current NVS regions before any write..." -ForegroundColor Cyan
     $Desktop = [Environment]::GetFolderPath("Desktop")
@@ -54,9 +61,9 @@ try {
     if ($LASTEXITCODE -ne 0) { throw "Could not read nvsfactory; flashing stopped." }
     & py -m esptool --chip esp32p4 --port $Port --baud 460800 read-flash 0x3b000 0xd2000 $NvsBackup
     if ($LASTEXITCODE -ne 0) { throw "Could not read NVS; flashing stopped." }
-
     Write-Host "NVS backups saved to Desktop." -ForegroundColor Green
-    Write-Host "[4/6] Flashing exact flash_args offsets. No full.bin and no erase-flash..." -ForegroundColor Cyan
+
+    Write-Host "[4/6] Flashing exact official flash_args offsets. No full.bin and no erase-flash..." -ForegroundColor Cyan
     & py -m esptool --chip esp32p4 --port $Port --baud 460800 write-flash --flash-mode dio --flash-freq 80m --flash-size 32MB `
         0x2000 $Boot `
         0x110000 $App `
