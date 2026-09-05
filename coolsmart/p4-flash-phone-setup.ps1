@@ -18,6 +18,48 @@ $Files = @(
     @{ Remote = "storage.bin"; Local = "storage.bin"; Sha256 = "c1ec6e89a70576f5f8786c56a834aa6589a2f0bb801d0bd30e76922df17ffec1" }
 )
 
+function Read-FlashRegionSafe {
+    param(
+        [Parameter(Mandatory = $true)][string]$Offset,
+        [Parameter(Mandatory = $true)][string]$Size,
+        [Parameter(Mandatory = $true)][long]$ExpectedBytes,
+        [Parameter(Mandatory = $true)][string]$Destination,
+        [Parameter(Mandatory = $true)][string]$Label
+    )
+
+    $Bauds = @(230400, 115200)
+    foreach ($baud in $Bauds) {
+        for ($attempt = 1; $attempt -le 2; $attempt++) {
+            if (Test-Path $Destination) {
+                Remove-Item $Destination -Force -ErrorAction SilentlyContinue
+            }
+
+            Write-Host ("Reading {0} at {1} baud (attempt {2}/2)..." -f $Label, $baud, $attempt) -ForegroundColor DarkCyan
+            & py -m esptool --chip esp32p4 --port $Port --baud $baud read-flash $Offset $Size $Destination
+            $exitCode = $LASTEXITCODE
+
+            if ($exitCode -eq 0 -and (Test-Path $Destination)) {
+                $actualBytes = (Get-Item $Destination).Length
+                if ($actualBytes -eq $ExpectedBytes) {
+                    Write-Host ("{0} backup OK ({1} bytes)." -f $Label, $actualBytes) -ForegroundColor Green
+                    return
+                }
+                Write-Warning ("{0} backup size mismatch: expected {1}, got {2}. Retrying at safer speed." -f $Label, $ExpectedBytes, $actualBytes)
+            }
+            else {
+                Write-Warning ("{0} read failed at {1} baud. Retrying safely." -f $Label, $baud)
+            }
+
+            Start-Sleep -Seconds 2
+        }
+    }
+
+    if (Test-Path $Destination) {
+        Remove-Item $Destination -Force -ErrorAction SilentlyContinue
+    }
+    throw "$Label backup could not be read and verified after safe retries; flashing stopped before any write."
+}
+
 New-Item -ItemType Directory -Path $FwRoot -Force | Out-Null
 New-Item -ItemType Directory -Path (Join-Path $FwRoot "bootloader") -Force | Out-Null
 New-Item -ItemType Directory -Path (Join-Path $FwRoot "partition_table") -Force | Out-Null
@@ -60,11 +102,9 @@ try {
     $FactoryBackup = Join-Path $Desktop ("P4-nvsfactory-" + $Stamp + ".bin")
     $NvsBackup = Join-Path $Desktop ("P4-nvs-" + $Stamp + ".bin")
 
-    & py -m esptool --chip esp32p4 --port $Port --baud 460800 read-flash 0x9000 0x32000 $FactoryBackup
-    if ($LASTEXITCODE -ne 0) { throw "Could not read nvsfactory; flashing stopped." }
-    & py -m esptool --chip esp32p4 --port $Port --baud 460800 read-flash 0x3b000 0xd2000 $NvsBackup
-    if ($LASTEXITCODE -ne 0) { throw "Could not read NVS; flashing stopped." }
-    Write-Host "NVS backups saved to Desktop." -ForegroundColor Green
+    Read-FlashRegionSafe -Offset "0x9000" -Size "0x32000" -ExpectedBytes 204800 -Destination $FactoryBackup -Label "nvsfactory"
+    Read-FlashRegionSafe -Offset "0x3b000" -Size "0xd2000" -ExpectedBytes 860160 -Destination $NvsBackup -Label "NVS"
+    Write-Host "Both NVS backups are complete and size-verified on Desktop." -ForegroundColor Green
 
     Write-Host "[5/7] Flashing safe explicit offsets. NO erase-flash. NO full.bin." -ForegroundColor Cyan
     & py -m esptool --chip esp32p4 --port $Port --baud 460800 write-flash --flash-mode dio --flash-freq 80m --flash-size 32MB `
