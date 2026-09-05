@@ -38,35 +38,40 @@ try {
         if (-not (Test-Path $f)) { throw "Missing firmware file: $f" }
     }
 
-    Write-Host "[3/6] Backing up current nvsfactory before any write..." -ForegroundColor Cyan
+    Write-Host "[3/6] Backing up current NVS regions before any write..." -ForegroundColor Cyan
     $Desktop = [Environment]::GetFolderPath("Desktop")
-    $BackupPath = Join-Path $Desktop ("P4-nvsfactory-" + (Get-Date -Format "yyyyMMdd-HHmmss") + ".bin")
-    & py -m esptool --chip esp32p4 --port $Port --baud 460800 read-flash 0x9000 0x32000 $BackupPath
+    $Stamp = Get-Date -Format "yyyyMMdd-HHmmss"
+    $FactoryBackup = Join-Path $Desktop ("P4-nvsfactory-" + $Stamp + ".bin")
+    $NvsBackup = Join-Path $Desktop ("P4-nvs-" + $Stamp + ".bin")
+
+    & py -m esptool --chip esp32p4 --port $Port --baud 460800 read-flash 0x9000 0x32000 $FactoryBackup
     if ($LASTEXITCODE -ne 0) { throw "Could not read nvsfactory; flashing stopped." }
+    & py -m esptool --chip esp32p4 --port $Port --baud 460800 read-flash 0x3b000 0xd2000 $NvsBackup
+    if ($LASTEXITCODE -ne 0) { throw "Could not read NVS; flashing stopped." }
 
-    $factoryBytes = [System.IO.File]::ReadAllBytes($BackupPath)
-    $nonFF = 0
-    foreach ($b in $factoryBytes) { if ($b -ne 0xFF) { $nonFF++; if ($nonFF -ge 16) { break } } }
-    if ($nonFF -eq 0) {
-        Write-Host "FACTORY_NVS_ERASED" -ForegroundColor Red
-        Write-Host "The 0x9000 nvsfactory partition is all FF. Previous full.bin flashing erased factory data." -ForegroundColor Red
-        Write-Host "Current region saved to: $BackupPath" -ForegroundColor Yellow
-        throw "Factory NVS recovery is required before another firmware flash. No write was performed."
+    $factoryBytes = [System.IO.File]::ReadAllBytes($FactoryBackup)
+    $factoryHasData = $false
+    foreach ($b in $factoryBytes) {
+        if ($b -ne 0xFF) { $factoryHasData = $true; break }
     }
+    if ($factoryHasData) {
+        Write-Host "nvsfactory has data; backup saved to $FactoryBackup" -ForegroundColor Green
+    } else {
+        Write-Host "nvsfactory is blank (all FF). This build has no nvsfactory image in flash_args; continuing safely." -ForegroundColor Yellow
+    }
+    Write-Host "NVS backup saved to $NvsBackup" -ForegroundColor Green
 
-    Write-Host "nvsfactory contains data and was backed up safely to: $BackupPath" -ForegroundColor Green
-
-    Write-Host "[4/6] Flashing ONLY valid partitions. nvsfactory/nvs are NOT touched..." -ForegroundColor Cyan
+    Write-Host "[4/6] Flashing EXACT official flash_args offsets. No full.bin and no erase-flash..." -ForegroundColor Cyan
     & py -m esptool --chip esp32p4 --port $Port --baud 460800 write-flash --flash-mode dio --flash-freq 80m --flash-size 32MB `
         0x2000 $Boot `
+        0x110000 $App `
         0x8000 $Part `
         0x10d000 $Ota `
-        0x110000 $App `
         0xa10000 $Storage
     if ($LASTEXITCODE -ne 0) { throw "Flashing failed with exit code $LASTEXITCODE" }
 
-    Write-Host "[5/6] Flash completed and verified." -ForegroundColor Green
-    Write-Host "[6/6] Opening 2,000,000 baud monitor. Press Ctrl+] to exit." -ForegroundColor Cyan
+    Write-Host "[5/6] Flash completed and esptool verified the writes." -ForegroundColor Green
+    Write-Host "[6/6] Opening the firmware console at 2,000,000 baud. Press Ctrl+] to exit." -ForegroundColor Cyan
     Start-Sleep -Seconds 1
     & py -m serial.tools.miniterm $Port 2000000
 }
