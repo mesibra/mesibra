@@ -48,11 +48,13 @@ try {
     $nonFF = 0
     foreach ($b in $factoryBytes) { if ($b -ne 0xFF) { $nonFF++; if ($nonFF -ge 16) { break } } }
     if ($nonFF -eq 0) {
-        Write-Host "WARNING: nvsfactory is already erased (all FF). Previous full.bin write likely erased factory data." -ForegroundColor Red
-        Write-Host "A backup of the current erased region was still saved to: $BackupPath" -ForegroundColor Yellow
-    } else {
-        Write-Host "nvsfactory contains data and was backed up safely to: $BackupPath" -ForegroundColor Green
+        Write-Host "FACTORY_NVS_ERASED" -ForegroundColor Red
+        Write-Host "The 0x9000 nvsfactory partition is all FF. Previous full.bin flashing erased factory data." -ForegroundColor Red
+        Write-Host "Current region saved to: $BackupPath" -ForegroundColor Yellow
+        throw "Factory NVS recovery is required before another firmware flash. No write was performed."
     }
+
+    Write-Host "nvsfactory contains data and was backed up safely to: $BackupPath" -ForegroundColor Green
 
     Write-Host "[4/6] Flashing ONLY valid partitions. nvsfactory/nvs are NOT touched..." -ForegroundColor Cyan
     & py -m esptool --chip esp32p4 --port $Port --baud 460800 write-flash --flash-mode dio --flash-freq 80m --flash-size 32MB `
